@@ -8,20 +8,81 @@ import (
 // Parser for json parsing ;)
 type Parser struct {
 	data    string
-	currPos uint64
+	currPos int
 }
 
-func (p Parser) parse() map[string]string {
-	var retVal = make(map[string]string)
-	return retVal
+func (p *Parser) consume(token string) {
+
+	p.currPos += len(token)
+
+	if p.currPos > len(p.data) {
+		p.currPos = len(p.data) - 1
+	}
 }
 
-func (p Parser) consumeWhiteSpace() {
+func (p *Parser) consumeWhiteSpace() {
+	for p.currPos < len(p.data) {
+		ch := p.data[p.currPos]
+		if ch != ' ' && ch != '\n' &&
+			ch != '\t' && ch != '\v' &&
+			ch != '\r' {
+			break
+		}
+		p.currPos++
+	}
+}
 
+func (p *Parser) parseQuotedString() string{
+	p.consumeWhiteSpace()
+	p.consume("\"")
+	startpos := p.currPos
+	endFound := false	
+
+	for p.currPos < len(p.data) {
+		if p.data[p.currPos] == '"'{
+			endFound = true
+			break
+		}
+		p.currPos++
+	}
+	if endFound == true {
+		p.consume("\"")
+		return string([]rune(p.data)[startpos:p.currPos-1])
+	}
+
+	return ""
 }
 
 func (p Parser) peek() string {
-	return ""
+	return string([]rune(p.data)[p.currPos])
+}
+
+func (p Parser) peekNext() string {
+	if p.currPos + 1 > len(p.data)	{
+		return ""
+	}
+	return string([]rune(p.data)[p.currPos+1])
+}
+
+func (p *Parser) parseObject() {
+	p.consume("{")
+	p.consumeWhiteSpace()
+	//p.consumeQuotedString()
+	//p.consume(":")
+	p.consumeWhiteSpace()
+}
+
+func (p *Parser) parse() map[string]string {
+	var retVal = make(map[string]string)
+	p.consumeWhiteSpace()
+
+	switch ch := p.peek(); ch {
+	case "{":
+		p.parseObject()
+	default:
+		fmt.Printf("unknown type %v \n", ch)
+	}
+	return retVal
 }
 
 func main() {
