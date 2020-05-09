@@ -11,6 +11,15 @@ type Parser struct {
 	currPos int
 }
 
+func (p Parser) isDigit(ch string) bool {
+	r := rune(ch[0])
+	if int(r-'0') <= 9 {
+		return true
+	}
+
+	return false
+}
+
 func (p *Parser) consume(token string) {
 
 	p.currPos += len(token)
@@ -47,9 +56,34 @@ func (p *Parser) parseQuotedString() string{
 	}
 	if endFound == true {
 		p.consume("\"")
-		return string([]rune(p.data)[startpos:p.currPos-1])
+		return string([]rune(p.data)[startpos : p.currPos-1])
 	}
 
+	return ""
+}
+
+func (p *Parser) parseNumber() string {
+	p.consumeWhiteSpace()
+
+	startpos := p.currPos
+	endFound := false
+
+	for p.currPos < len(p.data) {
+		ch := p.data[p.currPos]
+		if ch == '.' || ch == '-' {
+			p.currPos++
+			continue
+		}
+		if ch < '0' || ch > '9' {
+			break
+		}
+		p.currPos++
+		endFound = true
+	}
+
+	if endFound == true {
+		return string([]rune(p.data)[startpos:p.currPos])
+	}
 	return ""
 }
 
@@ -58,7 +92,7 @@ func (p Parser) peek() string {
 }
 
 func (p Parser) peekNext() string {
-	if p.currPos + 1 > len(p.data)	{
+	if p.currPos+1 > len(p.data) {
 		return ""
 	}
 	return string([]rune(p.data)[p.currPos+1])
