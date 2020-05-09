@@ -41,14 +41,14 @@ func (p *Parser) consumeWhiteSpace() {
 	}
 }
 
-func (p *Parser) parseQuotedString() string{
+func (p *Parser) parseQuotedString() string {
 	p.consumeWhiteSpace()
 	p.consume("\"")
 	startpos := p.currPos
-	endFound := false	
+	endFound := false
 
 	for p.currPos < len(p.data) {
-		if p.data[p.currPos] == '"'{
+		if p.data[p.currPos] == '"' {
 			endFound = true
 			break
 		}
@@ -106,14 +106,32 @@ func (p *Parser) parseObject() {
 	p.consumeWhiteSpace()
 }
 
-func (p *Parser) parse() map[string]string {
-	var retVal = make(map[string]string)
+func (p *Parser) parseArray() {
+	var retVal []string
+
+	p.consume("[")
 	p.consumeWhiteSpace()
 
-	switch ch := p.peek(); ch {
-	case "{":
+	retVal = append(retVal, p.parse())
+	//p.consumeQuotedString()
+	//p.consume(":")
+	p.consumeWhiteSpace()
+}
+
+func (p *Parser) parse() string {
+	//var retVal = make(map[string]string)
+	retVal := ""
+	p.consumeWhiteSpace()
+
+	ch := p.peek()
+
+	if ch == "{" {
 		p.parseObject()
-	default:
+	} else if ch == "[" {
+		p.parseObject()
+	} else if p.isDigit(ch) {
+		return p.parseNumber()
+	} else {
 		fmt.Printf("unknown type %v \n", ch)
 	}
 	return retVal
