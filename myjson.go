@@ -5,6 +5,24 @@ import (
 	"io/ioutil"
 )
 
+// JType ..
+type JType int
+
+// JString JNumber JArray JObject ..
+const (
+	JString JType = iota
+	JNumber
+	JArray
+	JObject
+)
+
+type jsonType struct {
+	jtype   JType
+	key     string
+	value   string
+	objects []jsonType
+}
+
 // Parser for json parsing ;)
 type Parser struct {
 	data    string
@@ -22,6 +40,9 @@ func (p Parser) isDigit(ch string) bool {
 
 func (p *Parser) consume(token string) {
 
+	if p.data[p.currPos] != token[0] {
+		return
+	}
 	p.currPos += len(token)
 
 	if p.currPos > len(p.data) {
@@ -98,39 +119,55 @@ func (p Parser) peekNext() string {
 	return string([]rune(p.data)[p.currPos+1])
 }
 
-func (p *Parser) parseObject() {
+func (p *Parser) parseObject() jsonType {
+	var retVal jsonType
+	retVal.jtype = JObject
 	p.consume("{")
 	p.consumeWhiteSpace()
-	//p.consumeQuotedString()
-	//p.consume(":")
+	retVal.key = p.parseQuotedString()
+
+	p.consume(":")
 	p.consumeWhiteSpace()
+	retVal.objects = append(retVal.objects, p.parse(retVal.key, retVal.objects))
+	return retVal
 }
 
-func (p *Parser) parseArray() {
-	var retVal []string
+func (p *Parser) parseArray(key string, arr []jsonType) jsonType {
+	var retVal jsonType
 
+	retVal.jtype = JArray
+	retVal.key = key
 	p.consume("[")
 	p.consumeWhiteSpace()
 
-	retVal = append(retVal, p.parse())
-	//p.consumeQuotedString()
-	//p.consume(":")
-	p.consumeWhiteSpace()
+	for true {
+		arr = append(arr, p.parse("", arr))
+
+		if p.peek() == "]" {
+			break
+		}
+		p.consumeWhiteSpace()
+		p.consume(",")
+	}
+	retVal.objects = arr
+	return retVal
 }
 
-func (p *Parser) parse() string {
+func (p *Parser) parse(key string, arr []jsonType) jsonType {
 	//var retVal = make(map[string]string)
-	retVal := ""
+	retVal := jsonType{}
 	p.consumeWhiteSpace()
 
 	ch := p.peek()
 
 	if ch == "{" {
-		p.parseObject()
+		return p.parseObject()
 	} else if ch == "[" {
-		p.parseObject()
+		return p.parseArray(key, arr)
 	} else if p.isDigit(ch) {
-		return p.parseNumber()
+		return jsonType{JNumber, key, p.parseNumber(), nil}
+	} else if ch == "\"" {
+		return jsonType{JString, key, p.parseQuotedString(), nil}
 	} else {
 		fmt.Printf("unknown type %v \n", ch)
 	}
