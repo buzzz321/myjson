@@ -3,5 +3,5 @@
     "blue": 16523,
     "green": 16614,
     "type": "Center",
-    "arr": [1 ,2 , 3]
+    "myarray": [1, 2, 3]
 }

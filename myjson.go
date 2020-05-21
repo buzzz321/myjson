@@ -6,7 +6,7 @@ import (
 )
 
 // JType ..
-type JType int
+type JType int8
 
 // JString JNumber JArray JObject ..
 const (
@@ -16,11 +16,60 @@ const (
 	JObject
 )
 
-type jsonType struct {
-	jtype   JType
-	key     string
-	value   string
-	objects []jsonType
+func (jtype JType) String() string {
+	switch jtype {
+	case JString:
+		return "JString"
+	case JNumber:
+		return "JNumber"
+	case JArray:
+		return "JArray"
+	case JObject:
+		return "JObject"
+	default:
+		return fmt.Sprintf("%d", int(jtype))
+	}
+}
+
+/*
+{ key: [1,2,3,4,5,6] }
+Value
+{
+	strValue string
+	number string
+	obj  object
+	arr Array
+}
+Object
+{
+	objects map[string]string
+}
+Array
+{
+	arr [] Value
+}
+*/
+
+// JSONValue Need to be exported to be printed
+type JSONValue struct {
+	jtype JType
+	value string
+	arr   []JSONValue
+	obj   JSObject
+}
+
+// JSONType Need to be exported to be printed
+type JSObject struct {
+	objects map[string]JSONValue
+}
+
+func (o *JSObject) add(key string, value JSONValue) {
+	o.objects[key] = value
+}
+
+func (o *JSObject) get(key string) (JSONValue, bool) {
+	value, ok := o.objects[key]
+	return value, ok
 }
 
 // Parser for json parsing ;)
@@ -31,23 +80,25 @@ type Parser struct {
 
 func (p Parser) isDigit(ch string) bool {
 	r := rune(ch[0])
-	if int(r-'0') <= 9 {
+	isnum := int(r - '0')
+	if isnum <= 9 && isnum >= 0 {
 		return true
 	}
 
 	return false
 }
 
-func (p *Parser) consume(token string) {
-
+func (p *Parser) consume(token string) bool {
 	if p.data[p.currPos] != token[0] {
-		return
+		return false
 	}
 	p.currPos += len(token)
 
 	if p.currPos > len(p.data) {
 		p.currPos = len(p.data) - 1
 	}
+
+	return true
 }
 
 func (p *Parser) consumeWhiteSpace() {
@@ -64,7 +115,9 @@ func (p *Parser) consumeWhiteSpace() {
 
 func (p *Parser) parseQuotedString() string {
 	p.consumeWhiteSpace()
-	p.consume("\"")
+	if !p.consume("\"") {
+		return ""
+	}
 	startpos := p.currPos
 	endFound := false
 
@@ -76,7 +129,9 @@ func (p *Parser) parseQuotedString() string {
 		p.currPos++
 	}
 	if endFound == true {
-		p.consume("\"")
+		if !p.consume("\"") {
+			panic("No end of string \" not found")
+		}
 		return string([]rune(p.data)[startpos : p.currPos-1])
 	}
 
@@ -96,10 +151,10 @@ func (p *Parser) parseNumber() string {
 			continue
 		}
 		if ch < '0' || ch > '9' {
+			endFound = true
 			break
 		}
 		p.currPos++
-		endFound = true
 	}
 
 	if endFound == true {
@@ -119,59 +174,91 @@ func (p Parser) peekNext() string {
 	return string([]rune(p.data)[p.currPos+1])
 }
 
-func (p *Parser) parseObject() jsonType {
-	var retVal jsonType
-	retVal.jtype = JObject
-	p.consume("{")
-	p.consumeWhiteSpace()
-	retVal.key = p.parseQuotedString()
+func (p *Parser) parseObject() JSObject {
+	var retVal JSObject
 
-	p.consume(":")
+	retVal.objects = make(map[string]JSONValue)
+
 	p.consumeWhiteSpace()
-	retVal.objects = append(retVal.objects, p.parse(retVal.key, retVal.objects))
+	if !p.consume("{") {
+		return retVal //no object to parse..
+	}
+
+	for true {
+		p.consumeWhiteSpace()
+
+		if p.consume("}") {
+			break
+		}
+
+		key := p.parseQuotedString()
+
+		if key == "" {
+			fmt.Println("Empty object")
+			continue // empty object
+		} else {
+			//fmt.Println(retVal.key)
+		}
+		p.consumeWhiteSpace()
+		if !p.consume(":") {
+			panic("no colon found")
+		}
+		p.consumeWhiteSpace()
+		value := p.parseValue()
+		retVal.add(key, value)
+
+		p.consumeWhiteSpace()
+		if !p.consume(",") {
+			break
+		}
+	}
+
 	return retVal
 }
 
-func (p *Parser) parseArray(key string, arr []jsonType) jsonType {
-	var retVal jsonType
+func (p *Parser) parseArray() JSONValue {
+	var retVal JSONValue
 
-	retVal.jtype = JArray
-	retVal.key = key
-	p.consume("[")
 	p.consumeWhiteSpace()
+	if !p.consume("[") {
+		fmt.Println("Error no array?!?")
+		return retVal // no array to parse
+	}
 
 	for true {
-		arr = append(arr, p.parse("", arr))
-
-		if p.peek() == "]" {
+		p.consumeWhiteSpace()
+		if p.consume("]") {
 			break
 		}
+		value := p.parseValue()
+
+		retVal.arr = append(retVal.arr, value)
+
 		p.consumeWhiteSpace()
 		p.consume(",")
 	}
-	retVal.objects = arr
+	//fmt.Println("-->", retVal)
 	return retVal
 }
 
-func (p *Parser) parse(key string, arr []jsonType) jsonType {
-	//var retVal = make(map[string]string)
-	retVal := jsonType{}
+func (p *Parser) parseValue() JSONValue {
 	p.consumeWhiteSpace()
 
 	ch := p.peek()
 
+	//fmt.Printf("--> will try to parse value for ch=%v\n", ch)
 	if ch == "{" {
-		return p.parseObject()
+		return JSONValue{JObject, "", nil, p.parseObject()}
 	} else if ch == "[" {
-		return p.parseArray(key, arr)
+		return JSONValue{JArray, "", p.parseArray().arr, JSObject{}}
 	} else if p.isDigit(ch) {
-		return jsonType{JNumber, key, p.parseNumber(), nil}
+		return JSONValue{JNumber, p.parseNumber(), nil, JSObject{}}
 	} else if ch == "\"" {
-		return jsonType{JString, key, p.parseQuotedString(), nil}
+		return JSONValue{JString, p.parseQuotedString(), nil, JSObject{}}
 	} else {
 		fmt.Printf("unknown type %v \n", ch)
+		panic("bailing out")
 	}
-	return retVal
 }
 
 func main() {

@@ -66,46 +66,14 @@ func TestParseNumbers(t *testing.T) {
 
 func TestParseArray(t *testing.T) {
 	uat := Parser{
-		data:    "{ \"barr\": [1,2,3,4,5,6] }",
+		data:    " [1,2,3,4,5,6] ",
 		currPos: 0}
 
-	var result jsonType
-	result = uat.parseObject()
+	result := uat.parseArray()
 
-	t.Logf("%v", result)
-	if result.jtype == JObject {
-		t.Logf("TestParseArray success, expected %v, got ->%v<-", "JObject", result)
-	} else {
-		t.Errorf("TestParseArray failed, expected %v, got ->%v<-", "JObject", result)
-	}
-
-	if result.key == "barr" {
-		t.Logf("TestParseArray success, expected %v, got ->%v<-", "barr", result)
-	} else {
-		t.Errorf("TestParseArray failed, expected %v, got ->%v<-", "barr", result)
-	}
-
-	if len(result.objects) == 1 {
-		t.Logf("TestParseArray success, expected %v, got ->%v<-", "1", result)
-	} else {
-		t.Errorf("TestParseArray failed, expected %v, got ->%v<-", "1", result)
-	}
-
-	if result.objects[0].jtype == JArray {
-		t.Logf("TestParseArray success, expected %v, got ->%v<-", "JArray", result)
-	} else {
-		t.Errorf("TestParseArray failed, expected %v, got ->%v<-", "JArray", result)
-	}
-
-	if len(result.objects[0].objects) == 6 {
-		t.Logf("TestParseArray success, expected %v, got ->%v<-", "6", result)
-	} else {
-		t.Errorf("TestParseArray failed, expected %v, got ->%v<-", "6", result)
-	}
-
+	//t.Errorf("%v", result)
 	data := 1
-
-	for _, actual := range result.objects[0].objects {
+	for _, actual := range result.arr {
 		i, _ := strconv.Atoi(actual.value)
 		if i == data {
 			t.Logf("TestParseArray success, expected %v, got ->%v<-", data, i)
@@ -113,5 +81,60 @@ func TestParseArray(t *testing.T) {
 			t.Errorf("TestParseArray failed, expected %v, got ->%v<-", data, i)
 		}
 		data++
+	}
+
+}
+
+func TestParseArrayInObject(t *testing.T) {
+	uat := Parser{
+		data:    " {\"plura\": [1,2,3,4,5,6] }",
+		currPos: 0}
+	//måste ju se till att spara ner plura med någonstans
+	result := uat.parseObject()
+
+	//t.Errorf("%v", result)
+
+	values, ok := result.get("plura")
+	if ok {
+		t.Logf("TestParseArray success, expected %v, got ->%v<-", true, ok)
+	} else {
+		t.Errorf("TestParseArray failed, expected %v, got ->%v<-", true, ok)
+	}
+
+	data := 1
+	for _, actual := range values.arr {
+		i, _ := strconv.Atoi(actual.value)
+		if i == data {
+			t.Logf("TestParseArray success, expected %v, got ->%v<-", data, i)
+		} else {
+			t.Errorf("TestParseArray failed, expected %v, got ->%v<-", data, i)
+		}
+		data++
+	}
+
+}
+
+func TestObject(t *testing.T) {
+	uat := Parser{
+		data: `{
+		"red": 14772,
+		"blue": 16523,
+		"green": 16614,
+		"type": "Center"} `,
+		currPos: 0}
+
+	result := uat.parseObject()
+
+	//t.Errorf("TestObject, expected %v, got ->%v<-", "*", result)
+	if result.objects["red"].jtype == JNumber {
+		t.Logf("TestObject success, expected %v, got ->%v<-", JNumber, result.objects["red"].jtype)
+	} else {
+		t.Errorf("TestObject failed, expected %v, got ->%v<-", JNumber, result.objects["red"].jtype)
+	}
+
+	if result.objects["red"].value == "14772" {
+		t.Logf("TestObject success, expected %v, got ->%v<-", "14772", result.objects["red"].value)
+	} else {
+		t.Errorf("TestObject failed, expected %v, got ->%v<-", "14772", result.objects["red"].value)
 	}
 }
